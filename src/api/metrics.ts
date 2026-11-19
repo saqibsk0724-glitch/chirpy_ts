@@ -5,7 +5,7 @@ export function handlerMetrics(
   req: Request,
   res: Response
 ): void {
-  res.set("Content-Type", "text/plain; charset=utf-8");
+  res.set("Content-Type", "text/html; charset=utf-8");
   res.send(`
     <html>
       <body>
