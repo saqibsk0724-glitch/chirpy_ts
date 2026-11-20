@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import type { JwtPayload } from "jsonwebtoken";
 import { BadRequestError } from "./api/errors.js";
 import type { Request } from "express";
+import { randomBytes } from "node:crypto";
 
 // Password hashing
 export async function hashPassword(
@@ -53,6 +54,10 @@ export function validateJWT(
   }
 
   return decoded.sub;
+}
+
+export function makeRefreshToken(): string {
+  return randomBytes(32).toString("hex");
 }
 
 

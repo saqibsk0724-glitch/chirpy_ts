@@ -6,8 +6,9 @@ import { users } from "../db/schema.js";
 import { checkPasswordHash } from "../auth.js";
 import { getUserByEmail } from "../db/queries/users.js";
 import { UnauthorizedError } from "./errors.js";
-import { makeJWT } from "../auth.js";
+import { makeJWT , makeRefreshToken} from "../auth.js";
 import { config } from "../config.js";
+import { createRefreshToken } from "../db/queries/refresh_tokens.js";
 
 type UserResponse = Omit<
   typeof users.$inferSelect,
@@ -54,14 +55,14 @@ export async function handlerCreateUser(
 }
 
 
+
 export async function handlerLogin(
   req: Request,
   res: Response
 ): Promise<void> {
-  const { email, password, expiresInSeconds } = req.body as {
+  const { email, password } = req.body as {
     email?: unknown;
     password?: unknown;
-    expiresInSeconds?: unknown;
   };
 
   if (typeof email !== "string" || typeof password !== "string") {
@@ -83,33 +84,36 @@ export async function handlerLogin(
     throw new UnauthorizedError("incorrect email or password");
   }
 
-  // Default expiration: 1 hour
-  let expiresIn = 3600;
-
-  if (expiresInSeconds !== undefined) {
-    if (
-      typeof expiresInSeconds !== "number" ||
-      !Number.isFinite(expiresInSeconds) ||
-      expiresInSeconds <= 0
-    ) {
-      throw new BadRequestError("Invalid expiration time");
-    }
-
-    // Never allow more than 1 hour
-    expiresIn = Math.min(expiresInSeconds, 3600);
-  }
-
+  // Create an access token that expires in 1 hour
   const token = makeJWT(
     user.id,
-    expiresIn,
+    3600,
     config.jwtSecret
   );
 
+  // Create a refresh token
+  const refreshToken = makeRefreshToken();
+
+  // Set expiration to 60 days from now
+  const expiresAt = new Date(
+    Date.now() + 60 * 24 * 60 * 60 * 1000
+  );
+
+  // Save refresh token in the database
+  await createRefreshToken({
+    token: refreshToken,
+    userId: user.id,
+    expiresAt,
+    revokedAt: null,
+  });
+
+  // Return user details and both tokens
   res.status(200).json({
     id: user.id,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     email: user.email,
     token,
+    refreshToken,
   });
 }
