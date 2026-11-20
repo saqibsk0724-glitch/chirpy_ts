@@ -8,6 +8,20 @@
       "when": 1795119235961,
       "tag": "0000_daily_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795169233291,
+      "tag": "0001_lean_vector",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795172930514,
+      "tag": "0002_wild_juggernaut",
+      "breakpoints": true
     }
   ]
 }
