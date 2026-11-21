@@ -3,13 +3,13 @@ import { Request, Response } from "express";
 import { createChirp } from "../db/queries/chirps.js";
 
 import { getAllChirps } from "../db/queries/chirps.js";
-import { getChirp } from "../db/queries/chirps.js";
+import { getChirp , deleteChirp } from "../db/queries/chirps.js";
 
-import { BadRequestError, NotFoundError } from "./errors.js";
+import { BadRequestError, NotFoundError , UnauthorizedError  , ForbiddenError} from "./errors.js";
 
 import { getBearerToken, validateJWT } from "../auth.js";
 import { config } from "../config.js";
-import { UnauthorizedError } from "./errors.js";
+
 
 type ChirpParams = {
   body: string;
@@ -74,12 +74,31 @@ export async function handlerCreateChirp(
 
  
 
-
 export async function handlerGetAllChirps(
   req: Request,
   res: Response
 ): Promise<void> {
-  const chirps = await getAllChirps();
+  let authorId = "";
+  const authorIdQuery = req.query.authorId;
+
+  if (typeof authorIdQuery === "string") {
+    authorId = authorIdQuery;
+  }
+
+  const chirps = await getAllChirps(authorId);
+
+  const sort = req.query.sort;
+
+  chirps.sort((a, b) => {
+    const difference =
+      a.createdAt.getTime() - b.createdAt.getTime();
+
+    if (sort === "desc") {
+      return -difference;
+    }
+
+    return difference;
+  });
 
   res.status(200).json(chirps);
 }
@@ -102,4 +121,45 @@ export async function handlerGetChirp(
   }
 
   res.status(200).json(chirp);
+}
+
+
+export async function handlerDeleteChirp(
+  req: Request,
+  res: Response
+): Promise<void> {
+  // 1. Authenticate the user
+  let userId: string;
+
+  try {
+    const token = getBearerToken(req);
+    userId = validateJWT(token, config.jwtSecret);
+  } catch {
+    throw new UnauthorizedError("Invalid or missing access token");
+  }
+
+  // 2. Get and validate chirp ID
+  const chirpId = req.params.chirpId;
+
+  if (typeof chirpId !== "string") {
+    throw new NotFoundError("Chirp ID is required");
+  }
+
+  // 3. Find the chirp
+  const chirp = await getChirp(chirpId);
+
+  if (!chirp) {
+    throw new NotFoundError("Chirp not found");
+  }
+
+  // 4. Check ownership
+  if (chirp.userId !== userId) {
+    throw new ForbiddenError("You are not allowed to delete this chirp");
+  }
+
+  // 5. Delete the chirp
+  await deleteChirp(chirpId);
+
+  // 6. Return 204 No Content
+  res.status(204).send();
 }

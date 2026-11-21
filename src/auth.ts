@@ -2,9 +2,10 @@
 import argon2 from "argon2";
 import jwt from "jsonwebtoken";
 import type { JwtPayload } from "jsonwebtoken";
-import { BadRequestError } from "./api/errors.js";
+import { BadRequestError , UnauthorizedError } from "./api/errors.js";
 import type { Request } from "express";
 import { randomBytes } from "node:crypto";
+
 
 // Password hashing
 export async function hashPassword(
@@ -82,4 +83,22 @@ export function getBearerToken(req: Request): string {
   const authorization = req.get("Authorization");
 
   return extractBearerToken(authorization);
+}
+
+
+
+export function getAPIKey(req: Request): string {
+  const authorization = req.get("Authorization");
+
+  if (!authorization) {
+    throw new UnauthorizedError("Missing API key");
+  }
+
+  const [scheme, key] = authorization.trim().split(/\s+/, 2);
+
+  if (scheme !== "ApiKey" || !key) {
+    throw new UnauthorizedError("Invalid API key");
+  }
+
+  return key;
 }
